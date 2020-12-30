@@ -5,7 +5,7 @@ from setuptools import find_packages
 setup(
     name='python-property-mapper',
     packages=find_packages(),
-    version='0.1',
+    version='0.2',
     author='Artem Vlasov',
     author_email='root@proscript.ru',
     url='http://github.com/Yuego/python-property-mapper/',

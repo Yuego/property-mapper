@@ -2,7 +2,7 @@ import inspect
 
 from typing import get_type_hints
 
-from .interface_base import ApiInterfaceBase
+from .interface_base import MapperInterfaceBase
 from .mapper_base import PropertyMapperBase, allowed_types
 
 
@@ -39,7 +39,7 @@ class PropertyMapperMeta(type):
         for base in bases:
             base_name = base.__class__.__name__
 
-            if issubclass(base, ApiInterfaceBase) and not issubclass(base, PropertyMapperBase):
+            if issubclass(base, MapperInterfaceBase) and not issubclass(base, PropertyMapperBase):
                 hints = get_type_hints(base)
 
                 for hint_name, hint_type in hints.items():

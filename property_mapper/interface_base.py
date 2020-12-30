@@ -1,4 +1,4 @@
 
 
-class ApiInterfaceBase:
+class MapperInterfaceBase:
     pass

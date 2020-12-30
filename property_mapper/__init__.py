@@ -1,4 +1,2 @@
-
-from .interface_base import ApiInterfaceBase
+from .interface_base import MapperInterfaceBase
 from .mapper import PropertyMapper
-from .response import ApiResponse, ApiResponseInterface
