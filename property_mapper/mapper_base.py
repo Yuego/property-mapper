@@ -1,7 +1,7 @@
 import inspect
 
 from .exceptions import WrongType, UnsupportedType
-from .mapper_type import PropertyMapperType, PropertyMapperCustomClass
+from .types.mapper_type import PropertyMapperType, PropertyMapperCustomClass
 
 __all__ = ['PropertyMapperBase', 'allowed_types']
 

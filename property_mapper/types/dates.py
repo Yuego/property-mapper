@@ -7,7 +7,7 @@ from dateutil.parser import parse
 from typing import List
 
 
-from .mapper_type import PropertyMapperType 
+from .mapper_type import PropertyMapperType
 
 __all__ = ['Datetime', 'DateString', 'Timezone']
 
