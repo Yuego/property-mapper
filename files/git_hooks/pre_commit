@@ -1,0 +1,5 @@
+#!/bin/bash
+
+files/git_hooks/version_update.py
+
+git add property_mapper/version.py

@@ -2,10 +2,12 @@
 from distutils.core import setup
 from setuptools import find_packages
 
+from property_mapper.version import version, build
+
 setup(
     name='python-property-mapper',
     packages=find_packages(),
-    version='0.2',
+    version=f'{version}.{build}',
     author='Artem Vlasov',
     author_email='root@proscript.ru',
     url='http://github.com/Yuego/python-property-mapper/',

@@ -1,6 +1,6 @@
 import inspect
 
-from .exceptions import WrongType, UnsupportedType
+from .exceptions import WrongType, UnsupportedType, ValidationError
 from .types.mapper_type import PropertyMapperType, PropertyMapperCustomClass
 
 __all__ = ['PropertyMapperBase', 'allowed_types']
@@ -11,16 +11,31 @@ class PropertyMapperBase:
 
     unknown_params: dict
 
-    def __init__(self, data):
+    def __init__(self, data, validate: bool = False):
         self.unknown_params = {}
 
         self._parse_json_data(data=self.prepare_data(data))
+
+        if validate:
+            self.validate_data()
 
     def prepare_data(self, data: dict) -> dict:
         if data is None:
             data = dict()
 
         return data
+
+    def validate_data(self):
+        if self.unknown_params:
+            raise ValidationError(f'Unexpected parameters: {self.unknown_params.keys()}')
+
+        unfilled = []
+        for prop_name in self._attrs_dict.keys():
+            if not hasattr(self, f'_{prop_name}'):
+                unfilled.append(prop_name)
+
+        if unfilled:
+            raise ValidationError(f'Unfilled parameters: {unfilled}')
 
     def _parse_json_data(self, data: dict):
         for prop_name, prop_value in data.items():
