@@ -3,7 +3,7 @@ import os
 
 from importlib.util import find_spec
 
-from .mapper_type import PropertyMapperType
+from property_mapper.mapper_type import PropertyMapperType
 
 MAPPER_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir))
 

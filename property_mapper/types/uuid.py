@@ -1,7 +1,7 @@
 from typing import List
 from uuid import UUID as OrigUUID
 
-from .mapper_type import PropertyMapperType
+from property_mapper.mapper_type import PropertyMapperType
 
 __all__ = ['UUID']
 

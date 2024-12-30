@@ -4,7 +4,9 @@ __all__ = ['PropertyMapperType', 'PropertyMapperCustomClass']
 
 
 class PropertyMapperType:
-    pass
+
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError
 
 
 class PropertyMapperCustomClass:

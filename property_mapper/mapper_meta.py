@@ -2,9 +2,8 @@ import inspect
 
 from typing import get_type_hints
 
-from .interface_base import MapperInterfaceBase
+from .interface import MapperInterface
 from .mapper_base import PropertyMapperBase, allowed_types
-
 
 __all__ = ['PropertyMapperMeta']
 
@@ -39,7 +38,7 @@ class PropertyMapperMeta(type):
         for base in bases:
             base_name = base.__class__.__name__
 
-            if issubclass(base, MapperInterfaceBase) and not issubclass(base, PropertyMapperBase):
+            if issubclass(base, MapperInterface) and not issubclass(base, PropertyMapperBase):
                 hints = get_type_hints(base)
 
                 for hint_name, hint_type in hints.items():
@@ -51,21 +50,20 @@ class PropertyMapperMeta(type):
                         if inspect.isclass(hint_type) and issubclass(hint_type, allowed_types):
                             attrs_dict[hint_name] = hint_type
                         elif isinstance(hint_type, (list, tuple)):
-                            if len(hint_type) != 1:
-                                raise TypeError(
-                                    f'Property `{hint_name}` of `{base_name}`. Typelist can contain only one item'
-                                )
+                            # if len(hint_type) != 1:
+                            #     raise TypeError(
+                            #         f'Property `{hint_name}` of `{base_name}`. Typelist can contain only one item'
+                            #     )
+                            attrs_dict[hint_name] = []
+                            for list_item_type in hint_type:
+                                _check_hint_type(base.__class__.__name__, hint_name, list_item_type)
 
-                            list_item_type = hint_type[0]
-
-                            _check_hint_type(base.__class__.__name__, hint_name, list_item_type)
-
-                            if inspect.isclass(list_item_type) and issubclass(list_item_type, allowed_types):
-                                attrs_dict[hint_name] = [list_item_type]
-                            else:
-                                raise TypeError(
-                                    f'Property `{hint_name}` of `{base_name}`. Unsupported type `{list_item_type}`'
-                                )
+                                if inspect.isclass(list_item_type) and issubclass(list_item_type, allowed_types):
+                                    attrs_dict[hint_name].append(list_item_type)
+                                else:
+                                    raise TypeError(
+                                        f'Property `{hint_name}` of `{base_name}`. Unsupported type `{list_item_type}`'
+                                    )
 
                         elif isinstance(hint_type, set):
                             if len(hint_type) <= 1:

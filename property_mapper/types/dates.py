@@ -1,13 +1,13 @@
 import pytz
 
 
-from datetime import datetime, tzinfo
+from datetime import datetime
 from dateutil.parser import parse
 
 from typing import List
 
 
-from .mapper_type import PropertyMapperType
+from property_mapper.mapper_type import PropertyMapperType
 
 __all__ = ['Datetime', 'DateString', 'Timezone']
 

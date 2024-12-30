@@ -1,7 +1,9 @@
-from .mapper_type import PropertyMapperType
+
+from datetime import datetime, timezone
+
+from property_mapper.mapper_type import PropertyMapperType
 
 from .lazy import Lazy
-from datetime import datetime
 from typing import List
 
 __all__ = [
@@ -20,7 +22,7 @@ class TimestampType(type):
 
             def __call__(self, value):
                 if value is not None:
-                    return datetime.utcfromtimestamp(value)
+                    return datetime.fromtimestamp(value, timezone.utc)
                 else:
                     return None
 

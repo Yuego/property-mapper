@@ -15,7 +15,6 @@ setup(
     description="Python dict to object property mapper",
     long_description=open('README.md').read(),
     zip_safe=False,
-    install_requires=[],
     include_package_data=True,
     keywords=[],
     classifiers=[

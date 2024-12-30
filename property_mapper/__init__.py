@@ -1,2 +1,2 @@
-from .interface_base import MapperInterfaceBase
+from .interface import MapperInterface
 from .mapper import PropertyMapper
