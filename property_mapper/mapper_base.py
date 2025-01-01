@@ -3,7 +3,7 @@ import inspect
 from typing import Any, List, Optional, Self, Type, Union, TypeVar
 
 from .exceptions import WrongType, UnsupportedType, ValidationError
-from property_mapper.mapper_type import PropertyMapperType, PropertyMapperCustomClass
+from property_mapper.mapper_type import PropertyMapperType
 from .utils import merge_dicts
 
 __all__ = ['PropertyMapperBase', 'allowed_types']
@@ -291,7 +291,7 @@ class PropertyMapperBase:
                         continue
             else:
                 raise WrongType(
-                    f'{self.__class__} Can`t select property type for item: {prop_name} = {received_item}!')
+                    f'{self.__class__} Can not select property type for item: {prop_name} = {received_item}!')
 
         return items
 
@@ -596,7 +596,6 @@ class PropertyMapperBase:
         dict_str = str(info_dict)
         if len(dict_str) > 200:
             dict_str = f'{dict_str[:200]} ...'
-
 
         return f'<{self.__class__.__name__}: {dict_str}>'
 

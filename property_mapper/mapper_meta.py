@@ -10,22 +10,17 @@ __all__ = ['PropertyMapperMeta']
 
 def _check_hint_type(class_name, hint_name, hint_type):
     if hint_type is None:
-        raise TypeError(f'Property `{hint_name}` of `{class_name}` can not be AnyType.')
+        raise TypeError(f'Property {hint_name} of {class_name} can not be AnyType.')
     elif inspect.isfunction(hint_type):
-        raise TypeError(f'Property `{hint_name}` of `{class_name}. Functions is not supported. '
+        raise TypeError(f'Property {hint_name} of {class_name}. Functions is not supported. '
                         f'Please subclass the PropertyMapperType class.')
     elif isinstance(hint_type, dict):
-        raise TypeError(f'Property `{hint_name}` of `{class_name}`. Dictionary type is not supported.'
+        raise TypeError(f'Property {hint_name} of {class_name}. Dictionary type is not supported.'
                         f'Please subclass the ApiInterfaceBase class.')
-    # elif isinstance(hint_type, list):
-    #    if len(hint_type) != 1:
-    #        raise TypeError(
-    #            f'Property `{hint_name}` of `{class_name}`. Typelist can contain only one item.'
-    #        )
     elif inspect.isclass(hint_type) and not issubclass(hint_type, allowed_types):
         raise TypeError(
-            f'Property `{hint_name}` of `{class_name}`. Unsupported type `{hint_type}`. Supported only simple type, '
-            f'`PropertyMapperType` or `ApiInterfaceBase` subclass, '
+            f'Property {hint_name} of {class_name}. Unsupported type {hint_type}. Supported only simple type, '
+            f'PropertyMapperType or ApiInterfaceBase subclass.'
         )
 
 
@@ -50,10 +45,6 @@ class PropertyMapperMeta(type):
                         if inspect.isclass(hint_type) and issubclass(hint_type, allowed_types):
                             attrs_dict[hint_name] = hint_type
                         elif isinstance(hint_type, (list, tuple)):
-                            # if len(hint_type) != 1:
-                            #     raise TypeError(
-                            #         f'Property `{hint_name}` of `{base_name}`. Typelist can contain only one item'
-                            #     )
                             attrs_dict[hint_name] = []
                             for list_item_type in hint_type:
                                 _check_hint_type(base.__class__.__name__, hint_name, list_item_type)
@@ -62,13 +53,13 @@ class PropertyMapperMeta(type):
                                     attrs_dict[hint_name].append(list_item_type)
                                 else:
                                     raise TypeError(
-                                        f'Property `{hint_name}` of `{base_name}`. Unsupported type `{list_item_type}`'
+                                        f'Property {hint_name} of {base_name}. Unsupported type {list_item_type}'
                                     )
 
                         elif isinstance(hint_type, set):
                             if len(hint_type) <= 1:
                                 raise TypeError(
-                                    f'Property `{hint_name}` of `{base_name}`. Typeset must contain more than one item.'
+                                    f'Property {hint_name} of {base_name}. Typeset must contain more than one item.'
                                 )
 
                             for set_item_type in hint_type:
@@ -77,7 +68,7 @@ class PropertyMapperMeta(type):
                             attrs_dict[hint_name] = hint_type
                         else:
                             raise TypeError(
-                                f'Property `{hint_name}` of `{base_name}`. Unsupported type `{hint_type}`'
+                                f'Property {hint_name} of {base_name}. Unsupported type {hint_type}'
                             )
 
             attrs['_attrs_dict'] = attrs_dict

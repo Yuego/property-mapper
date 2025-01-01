@@ -1,13 +1,7 @@
-from abc import ABCMeta, abstractmethod
-
-__all__ = ['PropertyMapperType', 'PropertyMapperCustomClass']
+__all__ = ['PropertyMapperType']
 
 
 class PropertyMapperType:
 
     def __call__(self, *args, **kwargs):
         raise NotImplementedError
-
-
-class PropertyMapperCustomClass:
-    pass
