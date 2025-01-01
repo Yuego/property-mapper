@@ -10,10 +10,13 @@ class UUIDType(type):
 
     def __new__(cls, *args, **kwargs):
         class _UUID(PropertyMapperType):
-            allow_type: List = (str,)
+            allow_type: List = (str, OrigUUID)
 
             def __call__(self, value):
                 if value is not None:
+                    if isinstance(value, OrigUUID):
+                        return value
+
                     return OrigUUID(value)
                 else:
                     return None

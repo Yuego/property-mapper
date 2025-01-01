@@ -22,20 +22,18 @@ class ExampleMapperInterface(PropertyMapperInterface):
     simple_int: int
     simple_str: str
     
-    # выбирает первый подходящий тип из сета
+    # выбирает первый подходящий тип из кортежа
     # значением будет объект выбранного типа
-    any_of: {int, str, DateString} 
+    any_of: (int, str, DateString) 
 
     # список объектов типа int
     list_of_objects: [int]
 
     # список объектов разных типов 
-    # (допустимо использовать кортеж в описании типа)
     # выбирает наиболее подходящий тип под объект
     # порядок важен. именно в таком порядке
     # проверяется, подходит ли тот или иной тип для объекта
     list_of_different_objects: [int, DateString, str]
-    list_of_different_objects2: (int, str)
     
     just_dict: AnyType
 
@@ -65,9 +63,5 @@ class ExampleMapper(PropertyMapper, ExampleMapperInterface):
     # если True, в наборе данных обязаны присутствовать
     # все описанные в интерфейсе поля
     pm_strict_check = False
-    
-    # строгая проверка вложенных объектов
-    # даже если у них она отключена, всё равно будет проведена
-    pm_strict_deep = False
 
 mapped = ExampleMapper(example_dict)

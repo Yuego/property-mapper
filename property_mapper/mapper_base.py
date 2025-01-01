@@ -1,6 +1,6 @@
 import inspect
 
-from typing import Any, Optional, Self, Type, Union
+from typing import Any, List, Optional, Self, Type, Union, TypeVar
 
 from .exceptions import WrongType, UnsupportedType, ValidationError
 from property_mapper.mapper_type import PropertyMapperType, PropertyMapperCustomClass
@@ -16,18 +16,17 @@ class PropertyMapperBase:
     pm_identify_path: str = None
     pm_allow_unknown: bool = False
     pm_strict_check: bool = False
-    pm_strict_deep: bool = False
+    pm_magick_unknown: List[type]  # TODO: реализовать
 
     _attrs_dict: dict
 
     unknown_params: dict
 
-    _pm_setting_strict: bool
-    _pm_setting_strict_deep: bool
     _pm_private_parent: 'PropertyMapperBase'
     _pm_private_root: 'PropertyMapperBase'
+    _pm_private_attr_name: str = None
 
-    def __init__(self, data, strict: bool = None, deep: bool = None, parent: 'PropertyMapperBase' = None):
+    def __init__(self, data, parent: 'PropertyMapperBase' = None, attr_name: str = None):
         """
 
         :param data: словарь с данными
@@ -36,12 +35,9 @@ class PropertyMapperBase:
         :param parent: добавить ссылки на родительские объекты
         """
 
-        self._pm_setting_strict_deep = deep or self.pm_strict_deep
-        # deep автоматически включает проверку, даже если она отключена
-        self._pm_setting_strict = strict or self.pm_strict_check or self._pm_setting_strict_deep
-
         if parent is not None:
             self._pm_private_parent = parent
+            self._pm_private_attr_name = attr_name
 
         if not self.pm_allow_unknown:
             self.validate_keys(data)
@@ -56,8 +52,8 @@ class PropertyMapperBase:
 
         self._parse_json_data(data=self.prepare_data(data))
 
-        if self._pm_setting_strict:
-            self.validate_schema(deep=self._pm_setting_strict_deep)
+        if self.pm_strict_check:
+            self.validate_schema()
 
     def prepare_data(self, data: dict) -> dict:
         """
@@ -80,28 +76,47 @@ class PropertyMapperBase:
         if diff:
             raise ValidationError(f'<{cls.__name__}> Data dict contains unknown keys: ({diff}). Data: {data}')
 
-    def validate_schema(self, deep: bool = False):
+    def validate_schema(self, similarity: int = 50):
         """
         Соответствие переданных данных общей схеме
+
+        Если включена строгая проверка (strict), проверяет
+        полное соответствие набора данных списку полей интерфейса
+
+        В противном случае вычисляет "похожесть" набора данных на объект.
+        Если процент заполненных полей меньше, чем similarity,
+        проверка будет провалена
+
+        :param similarity:
         :return:
         """
+
         unfilled = []
+        filled_count = 0
         for prop_name in self._attrs_dict.keys():
             if not hasattr(self, f'_{prop_name}'):
                 unfilled.append(prop_name)
-            elif deep:
-                prop_value = getattr(self, f'_{prop_name}')
-                if isinstance(prop_value, PropertyMapperBase):
-                    prop_value.validate_schema(deep=deep)
+            else:
+                filled_count += 1
 
-        if unfilled:
-            raise ValidationError(
-                f'<{self.__class__.__name__}> Unfilled parameters: {unfilled} for schema {self.__class__.__name__}')
+        if self.pm_strict_check:
+            if unfilled:
+                raise ValidationError(
+                    f'{self.__class__} Unfilled parameters: {unfilled} for schema')
+
+        else:
+            total_count = len(self._attrs_dict)
+            if (filled_count / total_count) * 100 < similarity:
+                raise ValidationError(
+                    f'{self.__class__} Data does not look like my schema.'
+                    f' Too few fields filled in ({filled_count} of {total_count})'
+                )
 
     def merge_data(self, data: dict, validate: bool = False) -> Self:
         """
         Сливает существующий Маппер с новыми данными
         :param data:
+        :param validate:
         :return:
         """
         if validate:
@@ -143,7 +158,7 @@ class PropertyMapperBase:
         return False
 
     @classmethod
-    def is_compat(cls, data: dict):
+    def is_compat(cls, data: dict) -> bool:
         """
         Проверяет, совместим ли массив данных с данным типом
         :param data:
@@ -159,7 +174,7 @@ class PropertyMapperBase:
             else:
                 return True
 
-    def is_equal_or_compat(self, data: dict) -> Optional[bool]:
+    def is_equal_or_compat(self, data: dict) -> bool:
         """
         Проверяет, совместим ли массив данных с конкретным объектом
 
@@ -181,7 +196,7 @@ class PropertyMapperBase:
     def __get_prop(self, prop_name):
         return getattr(self, f'_{prop_name}', None)
 
-    def __merge_unknown(self, prop_name: str, prop_value: Any):
+    def _merge_unknown(self, prop_name: str, prop_value: Any):
         """
         Сливает данные, которых нет в описании интерфейса Маппера
 
@@ -199,8 +214,10 @@ class PropertyMapperBase:
         self.unknown_params[prop_name] = new_value
 
     @classmethod
-    def __find_and_merge_in_list(cls, obj_list: list, prop_type: Type['PropertyMapperBase'], data: dict) -> Optional[
-        'PropertyMapperBase']:
+    def _find_and_merge_in_list(cls,
+                                obj_list: list,
+                                prop_type: Type['PropertyMapperBase'],
+                                data: dict) -> Optional['PropertyMapperBase']:
         """
         Ищет в переданном списке объектов подходящие по типу
         И если находит совместимый, сливает данные с ним
@@ -220,10 +237,10 @@ class PropertyMapperBase:
 
         return None
 
-    def __merge_types_list(self,
-                           prop_name: str,
-                           prop_value: Union[list[dict], tuple[dict]],
-                           types_list: Union[list[type], tuple[type]]):
+    def _merge_types_list(self,
+                          prop_name: str,
+                          prop_value: Union[list[dict], tuple[dict]],
+                          types_list: list[type]) -> list:
 
         """
         Сливает списки объектов
@@ -244,7 +261,7 @@ class PropertyMapperBase:
             for prop_type in types_list:
 
                 if issubclass(prop_type, PropertyMapperBase):
-                    merged_item = self.__find_and_merge_in_list(
+                    merged_item = self._find_and_merge_in_list(
                         obj_list=existing_items,
                         prop_type=prop_type,
                         data=received_item,
@@ -260,8 +277,7 @@ class PropertyMapperBase:
                             items.append(self._create_object(
                                 obj_value=received_item,
                                 obj_type=prop_type,
-                                strict=self._pm_setting_strict,
-                                deep=self._pm_setting_strict_deep,
+                                attr_name=prop_name,
                             ))
                             break
                         else:
@@ -274,118 +290,134 @@ class PropertyMapperBase:
                     except:  # TODO: уточнить типы ошибок
                         continue
             else:
-                raise WrongType(f'Can`t select property type for item: {received_item}!')
+                raise WrongType(
+                    f'{self.__class__} Can`t select property type for item: {prop_name} = {received_item}!')
 
-        self.__set_prop(prop_name, items)
+        return items
 
-    def __merge_types_set(self, prop_name: str, prop_value: Any, types_set: set):
-        for type_variant in types_set:
+    def _merge_types_tuple(self, prop_name: str, prop_value: Any, types_tuple: tuple):
+        for type_variant in types_tuple:
             if isinstance(prop_value, type_variant):
-                self.__set_prop(prop_name, prop_value)
+                return prop_value
 
             elif isinstance(prop_value, dict) and issubclass(type_variant, PropertyMapperBase):
                 old_value = self.__get_prop(prop_name)
                 if isinstance(old_value, PropertyMapperBase):
                     if old_value.is_equal_or_compat(prop_value):
-                        self.__set_prop(prop_name, old_value.merge_data(prop_value))
-                        break
+                        return old_value.merge_data(prop_value)
 
                 elif type_variant.is_compat(prop_value):
 
-                    self.__set_prop(prop_name, type_variant(
+                    return type_variant(
                         data=prop_value,
-                    ))
-                    break
+                    )
             else:
-                value = self.__make_simple_type(
+                value = self._make_simple_type(
                     prop_type=type_variant,
                     prop_value=prop_value,
                 )
 
                 if value is not None:
-                    self.__set_prop(prop_name, prop_value)
-                    break
+                    return prop_value
 
         else:
-            raise UnsupportedType(f'Unsupported type `{type(prop_value)} of `{prop_name}` field.'
-                                  f'Please check Interface definition.')
+            raise UnsupportedType(f'Unsupported type {type(prop_value)} of {prop_name} field.'
+                                  f' Please check Interface definition.')
 
     def _merge_json_data(self, data: dict) -> Self:
         for prop_name, prop_value in data.items():
             if prop_name not in self._attrs_dict:
-                self.__merge_unknown(prop_name=prop_name, prop_value=prop_value)
+                self._merge_unknown(prop_name=prop_name, prop_value=prop_value)
 
             else:
+                result = None
                 prop_type = self._attrs_dict[prop_name]
 
                 if prop_value is None:
                     self.__set_prop(prop_name, None)
+                    continue
 
-                elif isinstance(prop_type, (list, tuple)):
-                    self.__merge_types_list(
-                        prop_name=prop_name,
-                        prop_value=prop_value,
-                        types_list=prop_type,
-                    )
-                elif isinstance(prop_type, set):
-                    self.__merge_types_set(
-                        prop_name=prop_name,
-                        prop_value=prop_value,
-                        types_set=prop_type,
-                    )
-                elif inspect.isclass(prop_type) and issubclass(prop_type, allowed_types):
+                elif inspect.isclass(prop_type):
                     if issubclass(prop_type, PropertyMapperType):
-                        allow_for_type = getattr(prop_type, 'allow_type', None)
-                        if allow_for_type and not isinstance(prop_value, allow_for_type):
-                            raise UnsupportedType(f'Unsupported type `{type(prop_value)} of `{prop_name}` field.'
-                                                  f'Please check Interface definition.')
+                        result = self._make_mapper_type(prop_type=prop_type, prop_value=prop_value)
 
-                        prop_type = prop_type()
-                        value = prop_type(prop_value)
                     elif issubclass(prop_type, PropertyMapperBase):
 
                         old_obj: PropertyMapperBase = self.__get_prop(prop_name)
                         if old_obj is not None and old_obj.is_equal_or_compat(prop_value):
-                            value = old_obj.merge_data(prop_value)
+                            result = old_obj.merge_data(prop_value)
                         else:
 
-                            value = self._create_object(
+                            result = self._create_object(
                                 obj_value=prop_value,
                                 obj_type=prop_type,
-                                strict=self._pm_setting_strict,
-                                deep=self._pm_setting_strict_deep,
+                                attr_name=prop_name,
                             )
 
-                    else:
-                        value = prop_type(prop_value)
+                    elif issubclass(prop_type, allowed_types):
+                        result = prop_type(prop_value)
 
-                    self.__set_prop(prop_name, value)
+                elif isinstance(prop_type, list):
+                    result = self._merge_types_list(
+                        prop_name=prop_name,
+                        prop_value=prop_value,
+                        types_list=prop_type,
+                    )
+                elif isinstance(prop_type, tuple):
+                    result = self._merge_types_tuple(
+                        prop_name=prop_name,
+                        prop_value=prop_value,
+                        types_tuple=prop_type,
+                    )
+
+                if result is None:
+                    raise ValueError(f'{self.__class__} Unexpected result value'
+                                     f' for item: {prop_name} = {prop_value}.')
+
+                self.__set_prop(prop_name, result)
 
         return self
 
-    def _create_object(self, obj_value, obj_type, strict: bool = False, deep: bool = False):
+    def _create_object(self, obj_value, obj_type, attr_name: str):
         """
         Реализует передачу ссылок в нижестоящие объекты
         :param obj_value:
         :param obj_type:
-        :param strict:
-        :param deep:
         :return:
         """
 
         if issubclass(obj_type, PropertyMapperBase):
-            obj = obj_type(data=obj_value, strict=strict, deep=deep, parent=self)
+            obj = obj_type(data=obj_value, parent=self, attr_name=attr_name)
         else:
             obj = obj_type(obj_value)
 
         return obj
 
-    def __make_simple_type(self, prop_type: type, prop_value: Any) -> Optional[Any]:
+    @staticmethod
+    def _make_mapper_type(prop_type: type[PropertyMapperType], prop_value: Any) -> Optional:
+        """
+        Пробует создать инстанс для встроенного в property_maker типа
+
+        :param prop_type:
+        :param prop_value:
+        :return:
+        """
+
+        allow_for_type = getattr(prop_type, 'allow_type', None)
+        if allow_for_type and not isinstance(prop_value, allow_for_type):
+            raise UnsupportedType(
+                f'Type {repr(prop_type)} not support type {type(prop_value)} of value {prop_value} field.'
+                f'Please check Interface definition.')
+
+        prop_type = prop_type()
+        return prop_type(prop_value)
+
+    def _make_simple_type(self, prop_type: type, prop_value: Any) -> Optional[Any]:
         if issubclass(prop_type, PropertyMapperType):
-            allow_for_type = getattr(prop_type, 'allow_type', None)
-            if allow_for_type and isinstance(prop_value, allow_for_type):
-                prop_type = prop_type()
-                return prop_type(prop_value)
+            try:
+                return self._make_mapper_type(prop_type=prop_type, prop_value=prop_value)
+            except UnsupportedType:
+                pass
 
         else:
             try:
@@ -393,12 +425,12 @@ class PropertyMapperBase:
             except (TypeError, ValueError, AttributeError):
                 pass
 
-    def __parse_types_list(self,
-                           prop_name: str,
-                           prop_value_list: Union[list[dict], tuple[dict]],
-                           types_list: Union[list[type], tuple[type]]):
+    def _parse_types_list(self,
+                          prop_name: str,
+                          prop_value_list: Union[list, tuple],
+                          types_list: list[type]):
 
-        if not isinstance(prop_value_list, (list, tuple)):
+        if not isinstance(prop_value_list, list):
             raise WrongType(f'Wrong item type ({type(prop_value_list)}).'
                             f' Please check {self.__class__.__name__} Interface definition.')
 
@@ -411,8 +443,7 @@ class PropertyMapperBase:
                         items.append(self._create_object(
                             obj_value=item,
                             obj_type=type_variant,
-                            strict=self._pm_setting_strict,
-                            deep=self._pm_setting_strict_deep,
+                            attr_name=prop_name,
                         ))
                         break
                     else:
@@ -428,38 +459,35 @@ class PropertyMapperBase:
                         continue
             else:
                 raise WrongType(f'<{self.__class__.__name__}> {self.get_path()}'
-                                f'Can`t select type for item'
-                                f' `{prop_name} = ({type(item)}: {item})` from types: `{types_list}`')
+                                f'Can not select type'
+                                f' for item: {prop_name} = ({type(item)}: {item}) from types: {types_list}')
 
-        self.__set_prop(prop_name, items)
+        return items
 
-    def __parse_types_set(self, prop_name: str, prop_value: Any, types_set: set):
-        for type_variant in types_set:
+    def _parse_types_tuple(self, prop_name: str, prop_value: Any, types_tuple: tuple):
+        for type_variant in types_tuple:
+            result = None
 
             if isinstance(prop_value, type_variant):
-                self.__set_prop(prop_name, prop_value)
-                break
+                result = prop_value
 
             elif isinstance(prop_value, dict) and issubclass(type_variant, PropertyMapperBase):
                 if type_variant.is_compat(prop_value):
-                    self.__set_prop(prop_name, self._create_object(
+                    result = self._create_object(
                         obj_value=prop_value,
                         obj_type=type_variant,
-                        strict=self._pm_setting_strict,
-                        deep=self._pm_setting_strict_deep,
-                    ))
-                    break
+                        attr_name=prop_name,
+                    )
             else:
-                value = self.__make_simple_type(
+                result = self._make_simple_type(
                     prop_type=type_variant,
                     prop_value=prop_value,
                 )
 
-                if value is not None:
-                    self.__set_prop(prop_name, prop_value)
-                    break
+            if result is not None:
+                return result
         else:
-            raise UnsupportedType(f'Unsupported type `{type(prop_value)} of `{prop_name}` field.'
+            raise UnsupportedType(f'{self.__class__} Unsupported type {type(prop_value)} of {prop_name} field.'
                                   f'Please check Interface definition.')
 
     def _parse_json_data(self, data: dict):
@@ -469,46 +497,44 @@ class PropertyMapperBase:
 
             else:
                 prop_type = self._attrs_dict[prop_name]
+                result = None
 
                 if prop_value is None:
                     self.__set_prop(prop_name, None)
+                    continue
 
-                elif isinstance(prop_type, (list, tuple)):
-                    self.__parse_types_list(
+                elif inspect.isclass(prop_type):
+                    if issubclass(prop_type, PropertyMapperType):
+                        result = self._make_mapper_type(prop_type=prop_type, prop_value=prop_value)
+
+                    elif issubclass(prop_type, PropertyMapperBase):
+                        result = self._create_object(
+                            obj_value=prop_value,
+                            obj_type=prop_type,
+                            attr_name=prop_name,
+                        )
+
+                    elif issubclass(prop_type, allowed_types):
+                        result = prop_type(prop_value)
+
+                elif isinstance(prop_type, list):
+                    result = self._parse_types_list(
                         prop_name=prop_name,
                         prop_value_list=prop_value,
                         types_list=prop_type,
                     )
 
-                elif isinstance(prop_type, set):
-                    self.__parse_types_set(
+                elif isinstance(prop_type, tuple):
+                    result = self._parse_types_tuple(
                         prop_name=prop_name,
                         prop_value=prop_value,
-                        types_set=prop_type,
+                        types_tuple=prop_type,
                     )
 
-                elif inspect.isclass(prop_type) and issubclass(prop_type, allowed_types):
-                    if issubclass(prop_type, PropertyMapperType):
-                        allow_for_type = getattr(prop_type, 'allow_type', None)
-                        if allow_for_type and not isinstance(prop_value, allow_for_type):
-                            raise UnsupportedType(f'Unsupported type `{type(prop_value)} of `{prop_name}` field.'
-                                                  f'Please check Interface definition.')
-
-                        prop_type = prop_type()
-                        value = prop_type(prop_value)
-
-                    elif issubclass(prop_type, PropertyMapperBase):
-                        value = self._create_object(
-                            obj_value=prop_value,
-                            obj_type=prop_type,
-                            strict=self._pm_setting_strict,
-                            deep=self._pm_setting_strict_deep,
-                        )
-
-                    else:
-                        value = prop_type(prop_value)
-
-                    self.__set_prop(prop_name, value)
+                if result is None:
+                    raise ValueError(f'{self.__class__} Unexpected result value'
+                                     f' for item: {prop_name} = {prop_value}.')
+                self.__set_prop(prop_name, result)
 
     def get_parent(self) -> 'PropertyMapperBase':
         if hasattr(self, '_pm_private_parent'):
@@ -550,15 +576,15 @@ class PropertyMapperBase:
         return result
 
     def get_path(self) -> str:
-        path = [self.__class__.__name__]
+        path = [self._pm_private_attr_name or self.__class__.__name__]
         last_parent = self
         parent = self.get_parent()
-        while not parent is last_parent:
-            path.insert(0, parent.__class__.__name__)
+        while parent is not last_parent:
+            path.insert(0, parent._pm_private_attr_name or parent.__class__.__name__)
             last_parent = parent
             parent = parent.get_parent()
 
-        return ' -> '.join(path)
+        return '->'.join(path)
 
     def __repr__(self) -> str:
         info_dict = dict()
@@ -567,7 +593,12 @@ class PropertyMapperBase:
             if value is not None:
                 info_dict[attr] = value
 
-        return f'<{self.__class__.__name__}: {info_dict}>'
+        dict_str = str(info_dict)
+        if len(dict_str) > 200:
+            dict_str = f'{dict_str[:200]} ...'
+
+
+        return f'<{self.__class__.__name__}: {dict_str}>'
 
 
 allowed_types = (
