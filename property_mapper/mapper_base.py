@@ -608,5 +608,4 @@ allowed_types = (
     # ApiInterfaceBase,
     PropertyMapperBase,
     PropertyMapperType,
-    PropertyMapperCustomClass,
 )
