@@ -1,3 +1,4 @@
+import datetime
 import inspect
 
 from typing import Any, List, Optional, Self, Type, Union, TypeVar
@@ -74,7 +75,7 @@ class PropertyMapperBase:
 
         diff = received_keys - own_keys
         if diff:
-            raise ValidationError(f'<{cls.__name__}> Data dict contains unknown keys: ({diff}). Data: {data}')
+            raise ValidationError(f'{cls} Data dict contains unknown keys: ({diff}). Data keys: {data.keys()}')
 
     def validate_schema(self, similarity: int = 50):
         """
@@ -123,6 +124,20 @@ class PropertyMapperBase:
             self.validate_keys(data)
 
         return self._merge_json_data(data=self.prepare_data(data))
+
+    def replace_data(self, other: 'PropertyMapperBase') -> Self:
+        """
+        Заменяет своё содержимое содержимым переданного маппера
+        :param other:
+        :return:
+        """
+        assert other.__class__ is self.__class__, (
+            'Замена данных возможна только для объектов одного типа!'
+        )
+
+        self.__dict__ = {}
+        self.__dict__.update(other.__dict__)
+        return self
 
     @classmethod
     def identify(cls, data: dict) -> bool:
@@ -459,7 +474,7 @@ class PropertyMapperBase:
                         continue
             else:
                 raise WrongType(f'<{self.__class__.__name__}> {self.get_path()}'
-                                f'Can not select type'
+                                f' Can not select type'
                                 f' for item: {prop_name} = ({type(item)}: {item}) from types: {types_list}')
 
         return items
@@ -570,6 +585,20 @@ class PropertyMapperBase:
 
             if isinstance(value, PropertyMapperBase):
                 value = value.as_dict(include_unknown=include_unknown)
+            elif isinstance(value, list):
+                items = []
+                for item in value:
+                    if isinstance(item, PropertyMapperBase):
+                        item = item.as_dict(include_unknown=include_unknown)
+
+                    items.append(item)
+                value = items
+            elif isinstance(value, datetime.datetime):
+                ms = str(value.microsecond)[:3]
+                value = value.strftime(f'%Y-%m-%dT%H:%M:%S.{ms}Z')
+
+            elif isinstance(value, datetime.date):
+                value = value.strftime('%Y-%m-%d')
 
             result[attr] = value
 
