@@ -33,7 +33,11 @@ class PropertyMapperMeta(type):
         for base in bases:
             base_name = base.__class__.__name__
 
-            if issubclass(base, MapperInterface) and not issubclass(base, PropertyMapperBase):
+            if issubclass(base, PropertyMapperBase):
+                # Наследование атрибутов
+                attrs_dict.update(getattr(base, '_attrs_dict', {}))
+
+            elif issubclass(base, MapperInterface):
                 hints = get_type_hints(base)
 
                 for hint_name, hint_type in hints.items():
