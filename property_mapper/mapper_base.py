@@ -26,6 +26,7 @@ class PropertyMapperBase:
     _pm_private_parent: 'PropertyMapperBase'
     _pm_private_root: 'PropertyMapperBase'
     _pm_private_attr_name: str = None
+    _pm_status_changed: bool = False
 
     def __init__(self, data, parent: 'PropertyMapperBase' = None, attr_name: str = None):
         """
@@ -35,6 +36,8 @@ class PropertyMapperBase:
         :param deep:
         :param parent: добавить ссылки на родительские объекты
         """
+
+        self.mark_original()
 
         if parent is not None:
             self._pm_private_parent = parent
@@ -75,7 +78,7 @@ class PropertyMapperBase:
 
         diff = received_keys - own_keys
         if diff:
-            raise ValidationError(f'{cls} Data dict contains unknown keys: ({diff}). Data keys: {data.keys()}')
+            raise ValidationError(f'{cls} Data dict contains unknown keys: ({diff}). Data keys: {received_keys}')
 
     def validate_schema(self, similarity: int = 50):
         """
@@ -123,7 +126,37 @@ class PropertyMapperBase:
         if validate:
             self.validate_keys(data)
 
+        # Помечаем объект как изменённый
+        self.mark_changed()
+
         return self._merge_json_data(data=self.prepare_data(data))
+
+    def merge_property(self, name: str, value: Any):
+        """
+        Сливает один атрибут
+        """
+        if name not in self._attrs_dict:
+            raise AttributeError(f'{self.__class__} Unknown property "{name}"')
+
+        self.mark_changed()
+
+        prop_type = self._attrs_dict[name]
+        if isinstance(prop_type, list):
+            self._merge_types_list(
+                prop_name=name,
+                prop_value=value,
+                types_list=prop_type
+            )
+        elif isinstance(prop_type, tuple):
+            pass
+        else:
+            prop_type = (prop_type,)
+
+        self._merge_types_tuple(
+            prop_name=name,
+            prop_value=value,
+            types_tuple=prop_type
+        )
 
     def replace_data(self, other: 'PropertyMapperBase') -> Self:
         """
@@ -137,7 +170,38 @@ class PropertyMapperBase:
 
         self.__dict__ = {}
         self.__dict__.update(other.__dict__)
+
+        # Помечаем объект как изменённый
+        self.mark_changed()
+
         return self
+
+    def replace_property(self, name: str, value: Any):
+        """
+        Заменяет один атрибут
+        """
+        if name not in self._attrs_dict:
+            raise AttributeError(f'{self.__class__} Unknown property "{name}"')
+
+        self.mark_changed()
+
+        prop_type = self._attrs_dict[name]
+        if isinstance(prop_type, list):
+            self._parse_types_list(
+                prop_name=name,
+                prop_value_list=value,
+                types_list=prop_type
+            )
+        elif isinstance(prop_type, tuple):
+            pass
+        else:
+            prop_type = (prop_type,)
+
+        self._parse_types_tuple(
+            prop_name=name,
+            prop_value=value,
+            types_tuple=prop_type
+        )
 
     @classmethod
     def identify(cls, data: dict) -> bool:
@@ -446,8 +510,8 @@ class PropertyMapperBase:
                           types_list: list[type]):
 
         if not isinstance(prop_value_list, list):
-            raise WrongType(f'Wrong item type ({type(prop_value_list)}).'
-                            f' Please check {self.__class__.__name__} Interface definition.')
+            raise WrongType(f'{self.__class__} Wrong item type ({type(prop_value_list)}) for property: {prop_name}.'
+                            f' Please check interface definition.')
 
         items = []
         for item in prop_value_list:
@@ -570,15 +634,19 @@ class PropertyMapperBase:
 
         return self._pm_private_root
 
-    def as_dict(self, include_unknown=False) -> dict:
+    def as_dict(self, include_unknown=False, keys: list[str] = None) -> dict:
         """
         Преобразует объект обратно в словарь
         :param include_unknown: включить в словарь неопознанные поля
+        :param keys: включить в словарь только указанные поля
         :return:
         """
 
         result = dict()
         for attr in self._attrs_dict.keys():
+            if keys and attr not in keys:
+                continue
+
             value = getattr(self, attr, None)
             if value is None:
                 continue
@@ -614,6 +682,25 @@ class PropertyMapperBase:
             parent = parent.get_parent()
 
         return '->'.join(path)
+
+    @property
+    def is_changed(self) -> bool:
+        """
+        Флаг, изменялся ли объект
+        """
+        return self._pm_status_changed
+
+    def mark_changed(self):
+        """
+        Принудительно помечает объект изменённым
+        """
+        self._pm_status_changed = True
+
+    def mark_original(self):
+        """
+        Сбрасывает статус изменённого
+        """
+        self._pm_status_changed = False
 
     def __repr__(self) -> str:
         info_dict = dict()

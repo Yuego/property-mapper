@@ -1,6 +1,6 @@
 import inspect
 
-from typing import get_type_hints
+from typing import get_type_hints, Union
 
 from .interface import MapperInterface
 from .mapper_base import PropertyMapperBase, allowed_types
@@ -24,7 +24,29 @@ def _check_hint_type(class_name, hint_name, hint_type):
         )
 
 
+def make_property(key):
+    key = f'_{key}'
+
+    def get_property(self):
+        return getattr(self, key, None)
+
+    return get_property
+
+
+def make_property_getter(key, method_key):
+    key = f'_{key}'
+
+    def get_property(self):
+        value = getattr(self, key, None)
+        method = getattr(self, method_key)
+
+        return method(value)
+
+    return get_property
+
+
 class PropertyMapperMeta(type):
+    _attrs_dict: dict[str, type]
 
     def __new__(cls, name, bases, attrs):
 
@@ -78,39 +100,45 @@ class PropertyMapperMeta(type):
             attrs['_attrs_dict'] = attrs_dict
 
         for attr_name in attrs_dict.keys():
+            # Функция для динамического вычисления атрибута
             get_key = f'_get_{attr_name}'
 
             if get_key in attrs:
+                attrs[attr_name] = property(make_property_getter(attr_name, get_key))
 
-                def make_property(key):
-                    key = f'_{key}'
-                    method_key = get_key
-
-                    def get_property(self):
-                        value = getattr(self, key, None)
-                        method = getattr(self, method_key)
-
-                        return method(value)
-
-                    return get_property
-
-                attrs[attr_name] = property(make_property(attr_name))
-
+            # Статический атрибут
             else:
                 for base in bases:
                     if hasattr(base, get_key):
                         break
                 else:
-                    def make_property(key):
-                        key = f'_{key}'
-
-                        def get_property(self):
-                            return getattr(self, key, None)
-
-                        return get_property
-
                     attrs[attr_name] = property(make_property(attr_name))
 
         new_class = super().__new__(cls, name, bases, attrs)
 
         return new_class
+
+    def add_property(cls, name: str, type: Union[allowed_types]):
+        """
+        Динамически добавляет в маппер новый атрибут
+        """
+
+        # Если атрибут уже есть у класса, просто заменяем тип
+        just_replace = name in cls._attrs_dict
+
+        cls._attrs_dict[name] = type
+
+        if just_replace:
+            return
+
+        setattr(cls, name, property(make_property(name)))
+
+    def remove_property(cls, name: str):
+        """
+        Удаляет из маппера атрибут
+        """
+
+        if name in cls._attrs_dict:
+            cls._attrs_dict.pop(name)
+        if hasattr(cls, name):
+            delattr(cls, name)
