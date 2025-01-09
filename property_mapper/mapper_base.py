@@ -132,32 +132,69 @@ class PropertyMapperBase:
         # TODO: проверка на изменения
         return self._merge_json_data(data=self.prepare_data(data))
 
-    def merge_property(self, name: str, value: Any):
+    def merge_property(self, prop_name: str, prop_value: Any):
         """
         Сливает один атрибут
         """
-        if name not in self._attrs_dict:
-            raise AttributeError(f'{self.__class__} Unknown property "{name}"')
-
-        self.mark_changed()
-
-        prop_type = self._attrs_dict[name]
-        if isinstance(prop_type, list):
-            self._merge_list(
-                prop_name=name,
-                prop_value_list=value,
-                types_list=prop_type
-            )
-        elif isinstance(prop_type, tuple):
-            pass
+        if prop_name not in self._attrs_dict:
+            self._merge_unknown(prop_name=prop_name, prop_value=prop_value)
         else:
-            prop_type = (prop_type,)
+            result = None
+            prop_type = self._attrs_dict[prop_name]
 
-        self._select_and_merge_type(
-            prop_name=name,
-            prop_value=value,
-            types_tuple=prop_type
-        )
+            if prop_value is None:
+                if self.__get_prop(prop_name) is not None:
+                    # Поле было обнулено
+                    self.mark_changed()
+
+                self.__set_prop(prop_name, None)
+                return
+
+            elif inspect.isclass(prop_type):
+                if issubclass(prop_type, PropertyMapperBase):
+                    result = self._try_merge_object(
+                        prop_name=prop_name,
+                        prop_type=prop_type,
+                        prop_value=prop_value,
+                    )
+
+                    if result.is_changed:
+                        """
+                        Вложенный маппер изменился
+                        """
+                        self.mark_changed()
+
+                elif issubclass(prop_type, PropertyMapperType):
+                    result = self._try_merge_type(
+                        prop_name=prop_name,
+                        prop_type=prop_type,
+                        prop_value=prop_value,
+                    )
+
+                    if result.is_changed:
+                        """
+                        Вложенный тип изменился
+                        """
+                        self.mark_changed()
+
+            elif is_list(prop_type):
+                result = self._merge_list(
+                    prop_name=prop_name,
+                    prop_value_list=prop_value,
+                    list_type=get_types(prop_type)[0],
+                )
+            elif is_union(prop_type):
+                result = self._select_and_merge_type(
+                    prop_name=prop_name,
+                    prop_value=prop_value,
+                    types_tuple=get_types(prop_type),
+                )
+
+            if result is None:
+                raise ValueError(f'{self.__class__} Unexpected result value'
+                                 f' for item: {prop_name} = {prop_value}.')
+
+            self.__set_prop(prop_name, result)
 
     def replace_data(self, other: 'PropertyMapperBase') -> Self:
         """
@@ -295,12 +332,15 @@ class PropertyMapperBase:
         # Если содержимое - словарь, объединяем
         if old_value is not None:
             if isinstance(old_value, dict):
-                new_value = merge_dicts(prop_value, old_value)
+                new_value = merge_dicts(prop_value, old_value.copy())
 
         self.unknown_params[prop_name] = new_value
 
-    @classmethod
-    def _find_and_merge_object_in_list(cls,
+        if old_value != new_value:
+            # Словарь изменился
+            self.mark_changed()
+
+    def _find_and_merge_object_in_list(self,
                                        obj_list: list,
                                        prop_type: Type['PropertyMapperBase'],
                                        data: dict) -> Optional['PropertyMapperBase']:
@@ -321,12 +361,15 @@ class PropertyMapperBase:
             if obj.is_equal_or_compat(data):
                 result = obj.merge_data(data)
                 obj_list.remove(obj)
+
+                if result.is_changed:
+                    self.mark_changed()
+
                 return result
 
         return None
 
-    @classmethod
-    def _find_and_merge_type_in_list(cls,
+    def _find_and_merge_type_in_list(self,
                                      obj_list: list,
                                      prop_type: Type['PropertyMapperType'],
                                      value: Any) -> Optional['PropertyMapperType']:
@@ -344,6 +387,10 @@ class PropertyMapperBase:
 
                 result = obj.replace(value)
                 obj_list.remove(obj)
+
+                if result.is_changed:
+                    self.mark_changed()
+
                 return result
 
             except UnsupportedType:
@@ -399,6 +446,9 @@ class PropertyMapperBase:
                                 prop_type=prop_type,
                                 prop_value=received_item,
                             ))
+
+                            # Создали новый объект, значит, изменились
+                            self.mark_changed()
                             break
                         else:
                             continue
@@ -420,6 +470,9 @@ class PropertyMapperBase:
                                 prop_type=prop_type,
                                 prop_value=prop_value_list,
                             ))
+
+                            # Создали новый объект, значит изменились
+                            self.mark_changed()
                             break
                         except UnsupportedType:
                             continue
@@ -445,49 +498,10 @@ class PropertyMapperBase:
 
     def _merge_json_data(self, data: dict) -> Self:
         for prop_name, prop_value in data.items():
-            if prop_name not in self._attrs_dict:
-                self._merge_unknown(prop_name=prop_name, prop_value=prop_value)
-
-            else:
-                result = None
-                prop_type = self._attrs_dict[prop_name]
-
-                if prop_value is None:
-                    self.__set_prop(prop_name, None)
-                    continue
-
-                elif inspect.isclass(prop_type):
-                    if issubclass(prop_type, PropertyMapperBase):
-                        result = self._try_merge_object(
-                            prop_name=prop_name,
-                            prop_type=prop_type,
-                            prop_value=prop_value,
-                        )
-                    elif issubclass(prop_type, PropertyMapperType):
-                        result = self._try_merge_type(
-                            prop_name=prop_name,
-                            prop_type=prop_type,
-                            prop_value=prop_value,
-                        )
-
-                elif is_list(prop_type):
-                    result = self._merge_list(
-                        prop_name=prop_name,
-                        prop_value_list=prop_value,
-                        list_type=get_types(prop_type)[0],
-                    )
-                elif is_union(prop_type):
-                    result = self._select_and_merge_type(
-                        prop_name=prop_name,
-                        prop_value=prop_value,
-                        types_tuple=get_types(prop_type),
-                    )
-
-                if result is None:
-                    raise ValueError(f'{self.__class__} Unexpected result value'
-                                     f' for item: {prop_name} = {prop_value}.')
-
-                self.__set_prop(prop_name, result)
+            self.merge_property(
+                prop_name=prop_name,
+                prop_value=prop_value,
+            )
 
         return self
 
