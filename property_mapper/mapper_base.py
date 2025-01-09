@@ -126,9 +126,6 @@ class PropertyMapperBase:
         if validate:
             self.validate_keys(data)
 
-        # Помечаем объект как изменённый
-        self.mark_changed()
-
         # TODO: проверка на изменения
         return self._merge_json_data(data=self.prepare_data(data))
 
@@ -158,7 +155,7 @@ class PropertyMapperBase:
                         prop_value=prop_value,
                     )
 
-                    if result.is_changed:
+                    if result is not None and result.is_changed:
                         """
                         Вложенный маппер изменился
                         """
@@ -171,10 +168,17 @@ class PropertyMapperBase:
                         prop_value=prop_value,
                     )
 
-                    if result.is_changed:
+                    if result is not None and result.is_changed:
                         """
                         Вложенный тип изменился
                         """
+                        self.mark_changed()
+
+                elif prop_type is bool:
+                    result = bool(prop_value)
+
+                    if self.__get_prop(prop_name) != result:
+                        # Булево значение изменилось
                         self.mark_changed()
 
             elif is_list(prop_type):
