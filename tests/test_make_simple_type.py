@@ -8,20 +8,25 @@ from property_mapper.types import *
 @pytest.mark.parametrize(
     'input_type,input_value,expectation',
     [
-        (str, 'string', 'string'),
-        (str, 5, '5'),
+        (Str, 'string', Str('string')),
+        (Str, 5, Str('5')),
 
-        (int, 5, 5),
-        (int, 'abc', None),
-        (AnyType, '5', '5'),
-        (AnyType, 10, 10),
-        (AnyType, {'a': 'b'}, {'a': 'b'})
+        (Int, 5, Int(5)),
+        (Int, 'abc', None),
+
+        (Any, '5', '5'),
+        (Any, 10, 10),
+        (Any, {'a': 'b'}, {'a': 'b'})
 
     ],
 )
 def test_make_simple_type(input_type, input_value, expectation):
     obj = PropertyMapper({})
 
-    result = obj._make_simple_type(input_type, input_value)
+    result = obj._try_create_object(
+        prop_name='',
+        prop_type=input_type,
+        prop_value=input_value,
+    )
 
     assert result == expectation

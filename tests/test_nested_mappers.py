@@ -1,10 +1,10 @@
 from property_mapper.interface import MapperInterface
 from property_mapper.mapper import PropertyMapper
-
+from property_mapper.types import *
 
 class SimpleMapperInterface(MapperInterface):
-    string: str
-    integer: int
+    string: Str
+    integer: Int
 
 
 class SimpleMapper(PropertyMapper, SimpleMapperInterface):
@@ -13,7 +13,7 @@ class SimpleMapper(PropertyMapper, SimpleMapperInterface):
 
 class BaseMapperInterface(MapperInterface):
     child: SimpleMapper
-    item: str
+    item: Str
 
 
 class BaseMapper(PropertyMapper, BaseMapperInterface):
@@ -22,7 +22,7 @@ class BaseMapper(PropertyMapper, BaseMapperInterface):
 
 class TopMapperInterface(MapperInterface):
     base: BaseMapper
-    other: int
+    other: Int
 
 
 class TopMapper(PropertyMapper, TopMapperInterface):

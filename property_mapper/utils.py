@@ -1,4 +1,21 @@
-from typing import Dict
+from types import GenericAlias, UnionType
+from typing import Dict, List, Union
+
+# Получаем ссылки на типы
+ListAlias = type(List[int])
+UnionAlias = type(Union[int, str])
+
+
+def is_list(hint_type) -> bool:
+    return isinstance(hint_type, (GenericAlias, ListAlias)) and hint_type.__origin__ is list
+
+
+def is_union(hint_type) -> bool:
+    return isinstance(hint_type, (UnionAlias, UnionType))
+
+
+def get_types(hint) -> tuple[type]:
+    return hint.__args__
 
 
 def merge_dicts(src: Dict, dst: Dict, path: list = None, extend_lists: bool = False) -> Dict:

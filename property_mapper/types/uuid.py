@@ -1,28 +1,19 @@
-from typing import List
-from uuid import UUID as OrigUUID
-
 from property_mapper.mapper_type import PropertyMapperType
+
+from uuid import UUID as OrigUUID
 
 __all__ = ['UUID']
 
 
-class UUIDType(type):
+class UUID(PropertyMapperType, OrigUUID):
+    allow_types: tuple = (str, OrigUUID)
 
-    def __new__(cls, *args, **kwargs):
-        class _UUID(PropertyMapperType):
-            allow_type: List = (str, OrigUUID)
+    @classmethod
+    def parse(cls, value) -> 'UUID':
+        if isinstance(value, OrigUUID):
+            return cls(value.hex)
 
-            def __call__(self, value):
-                if value is not None:
-                    if isinstance(value, OrigUUID):
-                        return value
+        return cls(value)
 
-                    return OrigUUID(value)
-                else:
-                    return None
-
-        return _UUID
-
-
-class UUID(OrigUUID, metaclass=UUIDType):
-    pass
+    def reverse(self) -> str:
+        return str(self)

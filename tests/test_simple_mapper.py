@@ -1,10 +1,11 @@
 from property_mapper.interface import MapperInterface
 from property_mapper.mapper import PropertyMapper
+from property_mapper.types import *
 
 
 class SimpleMapperInterface(MapperInterface):
-    string: str
-    integer: int
+    string: Str
+    integer: Int
 
 
 class SimpleMapper(PropertyMapper, SimpleMapperInterface):
