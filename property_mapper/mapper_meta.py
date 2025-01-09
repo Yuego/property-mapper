@@ -6,7 +6,7 @@ from typing import get_type_hints, List, Union
 from .interface import MapperInterface
 from .mapper_base import PropertyMapperBase
 from .mapper_type import PropertyMapperType
-from .utils import is_list, is_union, ListAlias, UnionAlias
+from .utils import get_types, is_list, is_union, ListAlias, UnionAlias
 
 __all__ = [
     'PropertyMapperMeta',
@@ -50,7 +50,7 @@ def _check_list_hint(class_name, hint_name, hint_type: Union[GenericAlias, ListA
         _check_union_hint(
             class_name=class_name,
             hint_name=hint_name,
-            hint_type=hint_type,
+            hint_type=type_inside_list,
         )
 
     elif issubclass(type_inside_list, _own_types):
@@ -187,17 +187,23 @@ class PropertyMapperMeta(type):
 
                         if inspect.isclass(hint_type) and issubclass(hint_type, _own_types):
                             attrs_dict[hint_name] = hint_type
-                        elif isinstance(hint_type, (list, tuple)):
-                            attrs_dict[hint_name] = []
-                            for list_item_type in hint_type:
-                                _check_hint_type(base.__class__.__name__, hint_name, list_item_type)
-
-                                if inspect.isclass(list_item_type) and issubclass(list_item_type, _own_types):
-                                    attrs_dict[hint_name].append(list_item_type)
-                                else:
+                        elif isinstance(hint_type, _own_aliases):
+                            if is_list(hint_type):
+                                if len(get_types(hint_type)) > 1:
                                     raise TypeError(
-                                        f'Property {hint_name} of {base_name}. Unsupported type {list_item_type}'
+                                        f'Property {hint_name} of {base_name}. List can contain only one item!'
                                     )
+
+                            attrs_dict[hint_name] = hint_type
+                            # for list_item_type in hint_type:
+                            #     _check_hint_type(base.__class__.__name__, hint_name, list_item_type)
+                            #
+                            #     if inspect.isclass(list_item_type) and issubclass(list_item_type, _own_types):
+                            #         attrs_dict[hint_name].append(list_item_type)
+                            #     else:
+                            #         raise TypeError(
+                            #             f'Property {hint_name} of {base_name}. Unsupported type {list_item_type}'
+                            #         )
 
                         # elif isinstance(hint_type, set):
                         #     if len(hint_type) <= 1:

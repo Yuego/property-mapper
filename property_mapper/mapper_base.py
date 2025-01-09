@@ -643,7 +643,7 @@ class PropertyMapperBase:
                 return result
         else:
             raise UnsupportedType(f'{self.__class__} Unsupported type {type(prop_value)} of {prop_name} field.'
-                                  f'Please check Interface definition.')
+                                  f' Please check Interface definition.')
 
     def _parse_list(self,
                     prop_name: str,
@@ -699,6 +699,8 @@ class PropertyMapperBase:
                             prop_type=prop_type,
                             prop_value=prop_value,
                         )
+                    elif prop_type is bool:
+                        result = bool(prop_value)
 
                 else:
                     if is_list(prop_type):
@@ -714,9 +716,6 @@ class PropertyMapperBase:
                             prop_value=prop_value,
                             types_tuple=get_types(prop_type),
                         )
-
-                    elif prop_type is bool:
-                        result = bool(prop_value)
 
                 if result is None:
                     raise ValueError(f'{self.__class__} Unexpected result value'
