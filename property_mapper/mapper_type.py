@@ -33,8 +33,9 @@ class PropertyMapperType:
 
     def replace(self, value: Union[allow_types]) -> 'PropertyMapperType':
         result = self._parse(value=value)
-        if result != self:
-            result._changed = True
+        if result is not None:
+            if isinstance(result, PropertyMapperType) and result != self:
+                result._changed = True
 
         return result
 

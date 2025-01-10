@@ -615,11 +615,13 @@ class PropertyMapperBase:
                         prop_value: Any) -> PropertyMapperType:
         result = None
         old_value: PropertyMapperType = self.__get_prop(prop_name)
-        if old_value is not None:
+        if old_value is not None and isinstance(old_value, PropertyMapperType):
             try:
                 result = old_value.replace(prop_value)
             except (TypeError, ValueError):
                 pass
+            except Exception as e:
+                raise
 
         try:
             result = prop_type.from_data(prop_value)
