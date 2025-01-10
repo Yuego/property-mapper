@@ -155,24 +155,12 @@ class PropertyMapperBase:
                         prop_value=prop_value,
                     )
 
-                    if result is not None and result.is_changed:
-                        """
-                        Вложенный маппер изменился
-                        """
-                        self.mark_changed()
-
                 elif issubclass(prop_type, PropertyMapperType):
                     result = self._try_merge_type(
                         prop_name=prop_name,
                         prop_type=prop_type,
                         prop_value=prop_value,
                     )
-
-                    if result is not None and result.is_changed:
-                        """
-                        Вложенный тип изменился
-                        """
-                        self.mark_changed()
 
                 elif prop_type is bool:
                     result = bool(prop_value)
@@ -549,12 +537,17 @@ class PropertyMapperBase:
         :return:
         """
 
+        old_value = self.__get_prop(prop_name)
+
         if isinstance(prop_value, prop_type):
             """
             Простой тип.
             
             Пока только bool
             """
+            if old_value != prop_value:
+                self.mark_changed()
+
             return prop_value
 
         elif isinstance(prop_value, dict) and issubclass(prop_type, PropertyMapperBase):
@@ -562,14 +555,19 @@ class PropertyMapperBase:
             Пробуем слить новое значение со старым объектом.
             Не получается - создаём новый
             """
-            old_value = self.__get_prop(prop_name)
 
             if isinstance(old_value, PropertyMapperBase):
 
                 if old_value.is_equal_or_compat(prop_value):
-                    return old_value.merge_data(prop_value)
+                    result = old_value.merge_data(prop_value)
+                    if result.is_changed:
+                        self.mark_changed()
+
+                    return result
 
             elif prop_type.is_compat(prop_value):
+                self.mark_changed()
+
                 return self._make_mapper_object(
                     prop_name=prop_name,
                     prop_type=prop_type,
@@ -586,10 +584,15 @@ class PropertyMapperBase:
 
             if isinstance(old_value, PropertyMapperType):
                 try:
-                    return old_value.replace(prop_value)
+                    result = old_value.replace(prop_value)
+                    if result.is_changed:
+                        self.mark_changed()
+
+                    return result
                 except UnsupportedType:
                     pass
 
+            self.mark_changed()
             return self._make_mapper_type(
                 prop_type=prop_type,
                 prop_value=prop_value,
@@ -598,17 +601,29 @@ class PropertyMapperBase:
 
     def _try_merge_type(self, prop_name: str, prop_type: type[PropertyMapperType],
                         prop_value: Any) -> PropertyMapperType:
+        result = None
         old_value: PropertyMapperType = self.__get_prop(prop_name)
         if old_value is not None:
             try:
-                return old_value.replace(prop_value)
+                result = old_value.replace(prop_value)
             except (TypeError, ValueError):
                 pass
 
         try:
-            return prop_type.from_data(prop_value)
+            result = prop_type.from_data(prop_value)
         except (TypeError, ValueError):
             pass
+
+        if result is not None and isinstance(result, PropertyMapperType):
+            if result.is_changed:
+                """
+                Вложенный тип изменился
+                """
+                self.mark_changed()
+        elif result != old_value:
+            self.mark_changed()
+
+        return result
 
     def _try_create_object(self, prop_name: str, prop_type: type, prop_value: Any):
         """
