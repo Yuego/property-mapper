@@ -1,6 +1,16 @@
 from types import GenericAlias, UnionType
 from typing import Dict, List, Union
 
+__all__ = [
+    'get_types',
+    'is_list',
+    'is_union',
+    'make_property',
+    'make_property_getter',
+    'ListAlias',
+    'UnionAlias',
+]
+
 # Получаем ссылки на типы
 ListAlias = type(List[int])
 UnionAlias = type(Union[int, str])
@@ -16,6 +26,27 @@ def is_union(hint_type) -> bool:
 
 def get_types(hint) -> tuple[type]:
     return hint.__args__
+
+
+def make_property(key):
+    key = f'_{key}'
+
+    def get_property(self):
+        return getattr(self, key, None)
+
+    return get_property
+
+
+def make_property_getter(key, method_key):
+    key = f'_{key}'
+
+    def get_property(self):
+        value = getattr(self, key, None)
+        method = getattr(self, method_key)
+
+        return method(value)
+
+    return get_property
 
 
 def merge_dicts(src: Dict, dst: Dict, path: list = None, extend_lists: bool = False) -> Dict:

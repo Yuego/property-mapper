@@ -5,7 +5,7 @@ from typing import Any, List, Optional, Self, Type, Union
 
 from .exceptions import WrongType, UnsupportedType, ValidationError
 from .mapper_type import PropertyMapperType
-from .utils import is_list, is_union, get_types, merge_dicts
+from .utils import is_list, is_union, get_types, merge_dicts, make_property
 
 __all__ = ['PropertyMapperBase']
 
@@ -27,6 +27,8 @@ class PropertyMapperBase:
     _pm_private_root: 'PropertyMapperBase'
     _pm_private_attr_name: str = None
     _pm_status_changed: bool = False
+
+    _subclass_counter: int = 0
 
     def __init__(self, data, parent: 'PropertyMapperBase' = None, attr_name: str = None):
         """
@@ -73,6 +75,16 @@ class PropertyMapperBase:
 
     @classmethod
     def validate_keys(cls, data: dict):
+        """
+        Проверяет базовую схему, заданную в классе.
+
+        Созданные на ее базе объекты, у которых
+        набор полей может быть динамически изменён,
+        должны переопределить этот метод соответствующим образом
+        :param data:
+        :return:
+        """
+
         own_keys = set(cls._attrs_dict.keys())
         received_keys = set(data.keys())
 
@@ -755,6 +767,81 @@ class PropertyMapperBase:
                                      f' for item: {prop_name} = {prop_value}.')
 
                 self.__set_prop(prop_name, result)
+
+    def add_property(self,
+                     prop_name: str,
+                     prop_type: type[Union['PropertyMapperBase', PropertyMapperType, bool]],
+                     prop_value: Any) -> 'PropertyMapperBase':
+
+        prop_data = {
+            prop_name: (prop_type, prop_value),
+        }
+
+        return self.add_properties(prop_data=prop_data)
+
+    def add_properties(self,
+                       prop_data: dict[str, tuple[type[Union['PropertyMapper', PropertyMapperType, bool]], Any]]
+                       ) -> 'PropertyMapperBase':
+
+        # Если передан пустой словарь, ничего не делаем
+        if not prop_data:
+            return self
+
+        for prop_name in prop_data.keys():
+            if prop_name in self._attrs_dict:
+                raise KeyError(f'Property "{prop_name}" already exists!')
+
+        attrs_dict = self._attrs_dict.copy()
+        data = self.as_dict()
+
+        self.__class__._subclass_counter += 1
+        new_class: type[PropertyMapperBase] = type(
+            f'{self.__class__.__name__}{self.__class__._subclass_counter}',
+            (self.__class__,),
+            {},
+        )
+
+        for prop_name, (prop_type, prop_value) in prop_data.items():
+            attrs_dict[prop_name] = prop_type
+            data[prop_name] = prop_value
+
+            setattr(new_class, prop_name, property(make_property(prop_name)))
+
+        new_class._attrs_dict = attrs_dict
+
+        parent: PropertyMapperBase = getattr(self, '_pm_private_parent', None)
+        attr_name: str = getattr(self, '_pm_private_attr_name', None)
+
+        result = new_class(
+            data=data,
+            parent=parent,
+            attr_name=attr_name,
+        )
+
+        # Заменяем объект в иерархии
+        if parent and attr_name:
+            parent.__set_prop(attr_name, result)
+
+        result.mark_changed()
+
+        return result
+
+    def remove_property(self, prop_name: str):
+        if prop_name not in self._attrs_dict:
+            raise KeyError(f'Property "{prop_name}" does not exist!')
+
+        delattr(self, prop_name)
+        delattr(self, f'_{prop_name}')
+
+    def _set_parent(self, new_parent: 'PropertyMapperBase'):
+        """
+        Заменяет родителя на нового
+
+        :param new_parent:
+        :return:
+        """
+        self._pm_private_parent = new_parent
+        self._pm_private_root = new_parent.get_root()
 
     def get_parent(self) -> 'PropertyMapperBase':
         if hasattr(self, '_pm_private_parent'):
