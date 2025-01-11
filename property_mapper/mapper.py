@@ -1,10 +1,10 @@
-from .mapper_meta import PropertyMapperMeta
+from .interface import MapperInterface
 from .mapper_base import PropertyMapperBase
 
 __all__ = ['PropertyMapper']
 
 
-class PropertyMapper(PropertyMapperBase, metaclass=PropertyMapperMeta):
+class PropertyMapper(PropertyMapperBase, MapperInterface):
 
     def __eq__(self, other):
         """

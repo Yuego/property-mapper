@@ -1,7 +1,8 @@
 import inspect
+import sys
 
 from types import GenericAlias, UnionType
-from typing import List, Union
+from typing import Any, ForwardRef, List, Union
 
 from .mapper_base import PropertyMapperBase
 from .mapper_type import PropertyMapperType
@@ -29,6 +30,9 @@ own_aliases = (
 def check_union_hint(class_name, hint_name, hint_type: Union[UnionAlias, UnionType]):
     types = hint_type.__args__
 
+    new_types = []
+    has_new = False
+
     for t in types:
         if is_list(t):
             raise RecursionError(f'Union type hint can not contain List type hint!')
@@ -36,11 +40,20 @@ def check_union_hint(class_name, hint_name, hint_type: Union[UnionAlias, UnionTy
             raise RecursionError(f'Union type hint can not contain another Union type hint!')
 
         # Рекурсивно проверяем содержимое Union
-        check_hint_type(
+        new_type = check_hint_type(
             class_name=class_name,
             hint_name=hint_name,
             hint_type=t,
         )
+
+        if new_type is not t:
+            new_types.append(new_type)
+            has_new = True
+        else:
+            new_types.append(t)
+
+    if has_new:
+        return Union[tuple(new_types)]
 
 
 def check_list_hint(class_name, hint_name, hint_type: Union[GenericAlias, ListAlias]):
@@ -56,7 +69,7 @@ def check_list_hint(class_name, hint_name, hint_type: Union[GenericAlias, ListAl
         raise RecursionError(f'List type hint can not contain another List type hint!')
 
     if is_union(type_inside_list):
-        check_union_hint(
+        new_type = check_union_hint(
             class_name=class_name,
             hint_name=hint_name,
             hint_type=type_inside_list,
@@ -64,11 +77,14 @@ def check_list_hint(class_name, hint_name, hint_type: Union[GenericAlias, ListAl
 
     else:
         # Рекурсивно проверяем тип внутри списка
-        check_hint_type(
+        new_type = check_hint_type(
             class_name=class_name,
             hint_name=hint_name,
             hint_type=type_inside_list,
         )
+
+    if new_type is not None:
+        return list[(new_type,)]
 
 
 def check_hint_type(class_name, hint_name, hint_type):
@@ -128,7 +144,7 @@ def check_hint_type(class_name, hint_name, hint_type):
         List[int], List[Union[int, str]], List[int | str]
 
         """
-        check_list_hint(
+        return check_list_hint(
             class_name=class_name,
             hint_name=hint_name,
             hint_type=hint_type,
@@ -144,8 +160,69 @@ def check_hint_type(class_name, hint_name, hint_type):
         UnionType:
         int | str
         """
-        check_union_hint(
+        return check_union_hint(
             class_name=class_name,
             hint_name=hint_name,
             hint_type=hint_type,
         )
+
+    elif isinstance(hint_type, str):
+        hint_type = ForwardRef(hint_type, is_argument=False, is_class=True)
+        return hint_type
+
+    elif isinstance(hint_type, ForwardRef):
+        pass
+
+    else:
+        raise Exception(f'{class_name}: Unexpected hint type ({hint_type}) for property "{hint_name}"')
+
+    return hint_type
+
+
+def expand_forward_refs(new_class: type, hint_name: str, hint_type: Any):
+    """
+    Переводит Forward Refs в ссылки на конкретные объекты
+
+    :param new_class:
+    :param hint_type:
+    :return:
+    """
+
+    # base_globals = getattr(sys.modules.get(base.__module__, None), '__dict__', {})
+    # base_locals = dict(vars(base))
+
+    if isinstance(hint_type, ForwardRef):
+        if hint_type.__forward_arg__ == new_class.__name__:
+            return new_class
+        else:
+            raise TypeError(f'{new_class}: Unexpected ref {hint_type} in property {hint_name}')
+
+        # return hint_type._evaluate(
+        #     globalns=base_globals,
+        #     localns=base_locals,
+        #     type_params=base.__type_params__,
+        #     recursive_guard=frozenset(),
+        # )
+
+    elif is_list(hint_type) or is_union(hint_type):
+        result_args = []
+        has_new = False
+        for item in hint_type.__args__:
+            new_type = expand_forward_refs(new_class=new_class, hint_name=hint_name, hint_type=item)
+            if new_type is None:
+                result_args.append(item)
+            else:
+                result_args.append(new_type)
+                has_new = True
+
+        if has_new:
+            if is_union(hint_type):
+                return Union[tuple(result_args)]
+
+            elif is_list(hint_type):
+                return list[tuple(result_args)]
+
+            else:
+                raise TypeError(f'Unexpected error')
+
+    return hint_type

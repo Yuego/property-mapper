@@ -1,11 +1,11 @@
 from typing import Union
 
+from .interface import MapperInterface
 from .mapper_base import PropertyMapperBase
-from .mapper_meta import PropertyMapperMeta
 from .mapper_type import PropertyMapperType
 
 
-class MagicMapper(PropertyMapperBase, metaclass=PropertyMapperMeta):
+class MagicMapper(PropertyMapperBase, MapperInterface):
     """
     Маппер с динамическими атрибутами
     """

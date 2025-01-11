@@ -1,13 +1,14 @@
 import inspect
 
-from typing import get_type_hints
+from typing import get_type_hints, ForwardRef
 
 from .hints import (
     check_hint_type,
+    expand_forward_refs,
     own_aliases,
     own_types,
 )
-from .interface import MapperInterface
+from .interface_base import MapperInterfaceBase
 from .mapper_base import PropertyMapperBase
 from .utils import (
     make_property,
@@ -20,8 +21,6 @@ __all__ = [
 
 
 class PropertyMapperMeta(type):
-    _attrs_dict: dict[str, type]
-
     def __new__(cls, name, bases, attrs):
 
         attrs_dict = {}
@@ -33,18 +32,29 @@ class PropertyMapperMeta(type):
                 # Наследование атрибутов
                 attrs_dict.update(getattr(base, '_attrs_dict', {}))
 
-            elif issubclass(base, MapperInterface):
-                hints = get_type_hints(base)
+            elif issubclass(base, MapperInterfaceBase):
+                try:
+                    hints = get_type_hints(base)
+                except NameError as e:
+                    hints = base.__dict__.get('__annotations__', {})
 
                 for hint_name, hint_type in hints.items():
                     hint_name = hint_name.rstrip('_')
 
                     if not hasattr(base, hint_name):
-                        check_hint_type(base_name, hint_name, hint_type)
+                        new_type = check_hint_type(base_name, hint_name, hint_type)
+
+                        # Если в ходе проверки тип был преобразован в другой, заменяем
+                        if new_type is not None:
+                            hint_type = new_type
 
                         if inspect.isclass(hint_type) and issubclass(hint_type, own_types):
                             attrs_dict[hint_name] = hint_type
                         elif isinstance(hint_type, own_aliases):
+                            attrs_dict[hint_name] = hint_type
+
+                        # Поддержка Forward References
+                        elif isinstance(hint_type, ForwardRef):
                             attrs_dict[hint_name] = hint_type
                         else:
                             raise TypeError(
@@ -68,6 +78,18 @@ class PropertyMapperMeta(type):
                 else:
                     attrs[attr_name] = property(make_property(attr_name))
 
+
         new_class = super().__new__(cls, name, bases, attrs)
+
+        # Проверяем на наличие ForwardRef
+        for base in new_class.mro():
+            mapper_attrs_dict = getattr(base, '_attrs_dict', {})
+
+            for attr_name, orig_hint in mapper_attrs_dict.items():
+                new_hint = expand_forward_refs(new_class=new_class, hint_name=attr_name, hint_type=orig_hint)
+                if new_hint is not orig_hint:
+                    mapper_attrs_dict[attr_name] = new_hint
+
+            attrs_dict.update(mapper_attrs_dict)
 
         return new_class
