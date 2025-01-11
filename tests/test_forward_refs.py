@@ -1,5 +1,5 @@
 from property_mapper import MapperInterface, PropertyMapper
-from property_mapper.types import Any, Str
+from property_mapper.types import Any, Str, Int
 
 from typing import Union
 
@@ -13,4 +13,14 @@ class TestInterface(MapperInterface):
 
 
 class Test(PropertyMapper, TestInterface):
+    pass
+
+
+class SubTestInterface(TestInterface):
+    key: Int
+    value: Str
+    test: bool
+
+
+class SubTest(Test, SubTestInterface):
     pass

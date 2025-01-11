@@ -41,27 +41,26 @@ class PropertyMapperMeta(type):
                 for hint_name, hint_type in hints.items():
                     hint_name = hint_name.rstrip('_')
 
-                    if not hasattr(base, hint_name):
-                        new_type = check_hint_type(base_name, hint_name, hint_type)
+                    new_type = check_hint_type(base_name, hint_name, hint_type)
 
-                        # Если в ходе проверки тип был преобразован в другой, заменяем
-                        if new_type is not None:
-                            hint_type = new_type
+                    # Если в ходе проверки тип был преобразован в другой, заменяем
+                    if new_type is not None:
+                        hint_type = new_type
 
-                        if inspect.isclass(hint_type) and issubclass(hint_type, own_types):
-                            attrs_dict[hint_name] = hint_type
-                        elif isinstance(hint_type, own_aliases):
-                            attrs_dict[hint_name] = hint_type
+                    if inspect.isclass(hint_type) and issubclass(hint_type, own_types):
+                        attrs_dict[hint_name] = hint_type
+                    elif isinstance(hint_type, own_aliases):
+                        attrs_dict[hint_name] = hint_type
 
-                        # Поддержка Forward References
-                        elif isinstance(hint_type, ForwardRef):
-                            attrs_dict[hint_name] = hint_type
-                        else:
-                            raise TypeError(
-                                f'Property {hint_name} of {base_name}. Unsupported type {hint_type}'
-                            )
+                    # Поддержка Forward References
+                    elif isinstance(hint_type, ForwardRef):
+                        attrs_dict[hint_name] = hint_type
+                    else:
+                        raise TypeError(
+                            f'Property {hint_name} of {base_name}. Unsupported type {hint_type}'
+                        )
 
-            attrs['_attrs_dict'] = attrs_dict
+        attrs['_attrs_dict'] = attrs_dict
 
         for attr_name in attrs_dict.keys():
             # Функция для динамического вычисления атрибута
@@ -90,6 +89,6 @@ class PropertyMapperMeta(type):
                 if new_hint is not orig_hint:
                     mapper_attrs_dict[attr_name] = new_hint
 
-            attrs_dict.update(mapper_attrs_dict)
+            mapper_attrs_dict.update(mapper_attrs_dict)
 
         return new_class
