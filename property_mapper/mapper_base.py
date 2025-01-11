@@ -520,8 +520,9 @@ class PropertyMapperBase:
             attr_name=prop_name,
         )
 
-    @staticmethod
-    def _make_mapper_type(prop_type: type[PropertyMapperType],
+    def _make_mapper_type(self,
+                          prop_name: str,
+                          prop_type: type[PropertyMapperType],
                           prop_value: Any,
                           raise_exception: bool = True
                           ) -> Optional:
@@ -538,7 +539,8 @@ class PropertyMapperBase:
         except (TypeError, ValueError):
             if raise_exception:
                 raise UnsupportedType(
-                    f'Type {repr(prop_type)} not support type {type(prop_value)} of value "{prop_value}".'
+                    f'{self.__class__}: Type {repr(prop_type)} of property "{prop_name}" is not support'
+                    f' type {type(prop_value)} of value "{prop_value}".'
                     f' Please check Interface definition.')
 
     def _try_merge_object(self, prop_name: str, prop_type: type, prop_value: Any):
@@ -606,6 +608,7 @@ class PropertyMapperBase:
 
             self.mark_changed()
             return self._make_mapper_type(
+                prop_name=prop_name,
                 prop_type=prop_type,
                 prop_value=prop_value,
                 raise_exception=False,
@@ -672,6 +675,7 @@ class PropertyMapperBase:
             """
             try:
                 return self._make_mapper_type(
+                    prop_name=prop_name,
                     prop_type=prop_type,
                     prop_value=prop_value,
                 )
@@ -738,7 +742,11 @@ class PropertyMapperBase:
 
                 if inspect.isclass(prop_type):
                     if issubclass(prop_type, PropertyMapperType):
-                        result = self._make_mapper_type(prop_type=prop_type, prop_value=prop_value)
+                        result = self._make_mapper_type(
+                            prop_name=prop_name,
+                            prop_type=prop_type,
+                            prop_value=prop_value,
+                        )
 
                     elif issubclass(prop_type, PropertyMapperBase):
                         result = self._make_mapper_object(
