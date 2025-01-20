@@ -74,7 +74,7 @@ class PropertyMapperBase:
         return data
 
     @classmethod
-    def validate_keys(cls, data: dict):
+    def validate_keys(cls, data: dict, raise_error: bool = True):
         """
         Проверяет базовую схему, заданную в классе.
 
@@ -90,7 +90,11 @@ class PropertyMapperBase:
 
         diff = received_keys - own_keys
         if diff:
-            raise ValidationError(f'{cls} Data dict contains unknown keys: ({diff}). Data keys: {received_keys}')
+            if raise_error:
+                raise ValidationError(f'{cls} Data dict contains unknown keys: ({diff}). Data keys: {received_keys}')
+            else:
+                return False
+        return True
 
     def validate_schema(self, similarity: int = 50):
         """
@@ -444,7 +448,7 @@ class PropertyMapperBase:
                         break
 
                     else:
-                        if prop_type.identify(received_item) and prop_type.validate_keys(received_item):
+                        if prop_type.identify(received_item) or prop_type.validate_keys(received_item, False):
                             items.append(self._make_mapper_object(
                                 prop_name=prop_name,
                                 prop_type=prop_type,
@@ -928,11 +932,20 @@ class PropertyMapperBase:
         """
         return self._pm_status_changed
 
-    def mark_changed(self):
+    def mark_changed(self, propagate: bool = False):
         """
         Принудительно помечает объект изменённым
         """
         self._pm_status_changed = True
+
+        if propagate:
+            """
+            При необходимости помечаем всё древо, как изменённое
+            """
+
+            parent = self.get_parent()
+            if parent is not self:
+                parent.mark_changed(propagate=propagate)
 
     def mark_original(self):
         """
