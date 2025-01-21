@@ -1,3 +1,5 @@
+import time
+
 from datetime import datetime, date
 from dateutil.parser import parse
 
@@ -24,3 +26,7 @@ class Date(PropertyMapperType, date):
 
     def reverse(self) -> str:
         return self.isoformat()
+
+    @property
+    def origin(self) -> date:
+        return date.fromtimestamp(time.mktime(self.timetuple()))

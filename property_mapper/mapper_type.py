@@ -47,5 +47,16 @@ class PropertyMapperType:
         raise NotImplementedError
 
     @property
+    def origin(self):
+        """
+        Возвращает оригинальный (не обёрнутый) объект.
+
+        Может потребоваться, если у оригинального объекта
+        есть атрибуты и методы, которые были перегружены
+        этим типом, что может вызвать ошибки в работе.
+        """
+        return self
+
+    @property
     def is_changed(self):
         return self._changed
