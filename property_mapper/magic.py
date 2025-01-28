@@ -19,7 +19,7 @@ class MagicMapper(PropertyMapperBase, MapperInterface):
         :param kwargs:
         """
 
-        if cls.check_has_new_keys(data=data):
+        if hasattr(cls, 'pm_magic_type') and cls.check_has_new_keys(data=data):
             empty_obj: MagicMapper = cls(
                 data={},
                 parent=parent,
