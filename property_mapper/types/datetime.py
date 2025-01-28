@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from dateutil.parser import parse
 
 from typing import Optional, Union
@@ -14,6 +14,10 @@ class Datetime(PropertyMapperType, datetime):
     # Если таймзона не опознана, можно задать свою
     default_timezone = None
 
+    @classmethod
+    def get_default_date(cls):
+        return datetime.now(tz=timezone.utc)
+
     @staticmethod
     def _parse_date_string(value: str) -> datetime:
         return parse(value)
@@ -22,6 +26,9 @@ class Datetime(PropertyMapperType, datetime):
     def parse(cls, value: Union[allow_types]) -> 'Datetime':
         if isinstance(value, str):
             value = cls._parse_date_string(value)
+
+        if value is None:
+            value = cls.get_default_date()
 
         return cls(
             year=value.year,
