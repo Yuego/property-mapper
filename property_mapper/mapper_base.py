@@ -70,6 +70,9 @@ class PropertyMapperBase:
         """
         if data is None:
             data = dict()
+        elif not isinstance(data, dict):
+            if not self.pm_strict_check:
+                data = dict()
 
         return data
 
@@ -86,6 +89,12 @@ class PropertyMapperBase:
         """
 
         own_keys = set(cls._attrs_dict.keys())
+        if not isinstance(data, dict):
+            if cls.pm_strict_check:
+                raise ValidationError(f'{cls} Data dict "{data}" is not a dict!')
+            else:
+                return False
+
         received_keys = set(data.keys())
 
         diff = received_keys - own_keys
