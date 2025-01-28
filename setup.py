@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+
 from distutils.core import setup
 from setuptools import find_packages
 
@@ -16,6 +16,7 @@ setup(
     long_description=open('README.md').read(),
     zip_safe=False,
     include_package_data=True,
+    exclude_package_data={'': ['tests']},
     keywords=[],
     classifiers=[
         'Development Status :: 1 - Unstable',
