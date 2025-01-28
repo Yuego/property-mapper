@@ -6,7 +6,7 @@ from property_mapper.version import version, build
 
 setup(
     name='python-property-mapper',
-    packages=find_packages(),
+    packages=find_packages('.', exclude=['tests', 'tests.*']),
     version=f'{version}.{build}',
     author='Artem Vlasov',
     author_email='root@proscript.ru',
@@ -16,7 +16,6 @@ setup(
     long_description=open('README.md').read(),
     zip_safe=False,
     include_package_data=True,
-    exclude_package_data={'': ['tests']},
     keywords=[],
     classifiers=[
         'Development Status :: 1 - Unstable',
