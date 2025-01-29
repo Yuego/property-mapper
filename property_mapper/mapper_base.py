@@ -100,7 +100,10 @@ class PropertyMapperBase:
         diff = received_keys - own_keys
         if diff:
             if raise_error:
-                raise ValidationError(f'{cls} Data dict contains unknown keys: ({diff}). Data keys: {received_keys}')
+                raise ValidationError(
+                    f'{cls} Data dict contains unknown keys: ({diff}).'
+                    f' Data keys: {received_keys}'
+                    f' Data: {data}')
             else:
                 return False
         return True
