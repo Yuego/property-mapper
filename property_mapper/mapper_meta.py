@@ -77,7 +77,6 @@ class PropertyMapperMeta(type):
                 else:
                     attrs[attr_name] = property(make_property(attr_name))
 
-
         new_class = super().__new__(cls, name, bases, attrs)
 
         # Проверяем на наличие ForwardRef
@@ -92,3 +91,6 @@ class PropertyMapperMeta(type):
             mapper_attrs_dict.update(mapper_attrs_dict)
 
         return new_class
+
+    def __str__(cls):
+        return f'{cls.__module__}.{cls.__name__}'
