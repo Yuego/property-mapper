@@ -35,7 +35,7 @@ class PropertyMapperType:
         result = self._parse(value=value)
         if result is not None:
             if isinstance(result, PropertyMapperType) and result != self:
-                result._changed = True
+                result.mark_changed()
 
         return result
 
@@ -56,6 +56,12 @@ class PropertyMapperType:
         этим типом, что может вызвать ошибки в работе.
         """
         return self
+
+    def mark_changed(self):
+        self._changed = True
+
+    def mark_not_changed(self):
+        self._changed = False
 
     @property
     def is_changed(self):

@@ -167,7 +167,7 @@ class PropertyMapperBase:
             if prop_value is None:
                 if self.__get_prop(prop_name) is not None:
                     # Поле было обнулено
-                    self.mark_changed()
+                    self.mark_changed(propagate=True)
 
                 self.__set_prop(prop_name, None)
                 return
@@ -192,7 +192,7 @@ class PropertyMapperBase:
 
                     if self.__get_prop(prop_name) != result:
                         # Булево значение изменилось
-                        self.mark_changed()
+                        self.mark_changed(propagate=True)
 
             elif is_list(prop_type):
                 result = self._merge_list(
@@ -465,7 +465,7 @@ class PropertyMapperBase:
                             ))
 
                             # Создали новый объект, значит, изменились
-                            self.mark_changed()
+                            self.mark_changed(propagate=True)
                             break
                         else:
                             continue
@@ -489,7 +489,7 @@ class PropertyMapperBase:
                             ))
 
                             # Создали новый объект, значит изменились
-                            self.mark_changed()
+                            self.mark_changed(propagate=True)
                             break
                         except UnsupportedType:
                             continue
@@ -573,7 +573,7 @@ class PropertyMapperBase:
             Пока только bool
             """
             if old_value != prop_value:
-                self.mark_changed()
+                self.mark_changed(propagate=True)
 
             return prop_value
 
@@ -588,12 +588,12 @@ class PropertyMapperBase:
                 if old_value.is_equal_or_compat(prop_value):
                     result = old_value.merge_data(prop_value)
                     if result.is_changed:
-                        self.mark_changed()
+                        self.mark_changed(propagate=True)
 
                     return result
 
             elif prop_type.is_compat(prop_value):
-                self.mark_changed()
+                self.mark_changed(propagate=True)
 
                 return self._make_mapper_object(
                     prop_name=prop_name,
@@ -613,13 +613,13 @@ class PropertyMapperBase:
                 try:
                     result = old_value.replace(prop_value)
                     if result.is_changed:
-                        self.mark_changed()
+                        self.mark_changed(propagate=True)
 
                     return result
                 except UnsupportedType:
                     pass
 
-            self.mark_changed()
+            self.mark_changed(propagate=True)
             return self._make_mapper_type(
                 prop_name=prop_name,
                 prop_type=prop_type,
@@ -631,27 +631,37 @@ class PropertyMapperBase:
                         prop_value: Any) -> PropertyMapperType:
         result = None
         old_value: PropertyMapperType = self.__get_prop(prop_name)
-        if old_value is not None and isinstance(old_value, PropertyMapperType):
+
+        # Пробуем обновить существующее значение
+        if old_value is not None:
+            if isinstance(old_value, PropertyMapperType):
+                try:
+                    result = old_value.replace(prop_value)
+                except (TypeError, ValueError):
+                    pass
+                except Exception as e:
+                    raise
+
+        # Создаём новое значение. Если результат не None, помечаем его изменённым
+        if result is None:
             try:
-                result = old_value.replace(prop_value)
+                result = prop_type.from_data(prop_value)
+                if result is not None:
+                    if isinstance(result, PropertyMapperType):
+                        result.mark_changed()
+
             except (TypeError, ValueError):
                 pass
-            except Exception as e:
-                raise
-
-        try:
-            result = prop_type.from_data(prop_value)
-        except (TypeError, ValueError):
-            pass
 
         if result is not None and isinstance(result, PropertyMapperType):
             if result.is_changed:
                 """
                 Вложенный тип изменился
                 """
-                self.mark_changed()
-        elif result != old_value:
-            self.mark_changed()
+                self.mark_changed(propagate=True)
+
+        if result != old_value:
+            self.mark_changed(propagate=True)
 
         return result
 
