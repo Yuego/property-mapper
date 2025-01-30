@@ -816,7 +816,8 @@ class PropertyMapperBase:
         return self.add_properties(prop_data=prop_data)
 
     def add_properties(self,
-                       prop_data: dict[str, tuple[type[Union['PropertyMapper', PropertyMapperType, bool]], Any]]
+                       prop_data: dict[str, tuple[type[Union['PropertyMapper', PropertyMapperType, bool]], Any]],
+                       initial: bool = False,
                        ) -> 'PropertyMapperBase':
 
         # Если передан пустой словарь, ничего не делаем
@@ -832,7 +833,7 @@ class PropertyMapperBase:
 
         self.__class__._subclass_counter += 1
         new_class: type[PropertyMapperBase] = type(
-            f'{self.__class__.__name__}{self.__class__._subclass_counter}',
+            f'{self.__class__.__name__}',
             (self.__class__,),
             {},
         )
@@ -858,7 +859,8 @@ class PropertyMapperBase:
         if parent and attr_name:
             parent.__set_prop(attr_name, result)
 
-        result.mark_changed()
+        if not initial:
+            result.mark_changed(propagate=True)
 
         return result
 

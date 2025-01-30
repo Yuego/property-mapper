@@ -25,7 +25,7 @@ class MagicMapper(PropertyMapperBase, MapperInterface):
                 parent=parent,
                 attr_name=attr_name,
             )
-            return empty_obj.apply_data(data=data)
+            return empty_obj.apply_data(data=data, initial=True)
 
         else:
             return super().__new__(cls)
@@ -50,13 +50,16 @@ class MagicMapper(PropertyMapperBase, MapperInterface):
         """
         super().validate_keys(data=data)
 
-    def apply_data(self, data: dict) -> 'MagicMapper':
+    def apply_data(self, data: dict, initial: bool = False) -> 'MagicMapper':
         """
         Сравнивает список своих полей и полей, переданных в словаре
 
         Если есть новые поля, возвращает новый инстанс
         Поля, которые есть в классе, но нет в данных, обнуляются (None),
         но не удаляются
+
+        :param data:
+        :param initial: True только при создании объекта (объект не метится, как изменённый)
         """
         own_keys = set(self._attrs_dict.keys())
         received_keys = set(data.keys())
@@ -73,7 +76,7 @@ class MagicMapper(PropertyMapperBase, MapperInterface):
             data[key] = None
 
         if prop_data:
-            new_changes = self.add_properties(prop_data=prop_data)
+            new_changes = self.add_properties(prop_data=prop_data, initial=initial)
         else:
             new_changes = self
 
