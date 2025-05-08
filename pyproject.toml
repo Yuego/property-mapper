@@ -1,0 +1,42 @@
+[build-system]
+requires = ['setuptools']
+build-backend = 'setuptools.build_meta'
+
+[tool.setuptools.packages.find]
+where = ['.']
+include = ['property_mapper*']
+exclude = ['tests*']
+
+[tool.setuptools.dynamic]
+version = { attr = 'property_mapper.__version__' }
+
+[project]
+name = 'property-mapper'
+description = 'HPT Property Mapper'
+authors = [
+    { name = 'Artem Vlasov', email = 'root@proscript.ru' },
+]
+maintainers = [
+    { name = 'Artem Vlasov', email = 'root@proscript.ru' },
+]
+readme = 'README.md'
+
+requires-python = '>= 3.10'
+
+dependencies = [
+    'pytz',
+]
+
+dynamic = [
+    'version',
+]
+
+classifiers = [
+    'Development Status :: 4 - Beta',
+    'Intended Audience :: Developers',
+    'Natural Language :: Russian',
+    'Programming Language :: Python',
+]
+
+[project.urls]
+Repository = 'https://github.com/Yuego/property-mapper/'
