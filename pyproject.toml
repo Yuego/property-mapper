@@ -13,6 +13,9 @@ exclude = ['tests*']
 [tool.setuptools.dynamic]
 version = { attr = 'property_mapper.__version__' }
 
+[tool.hpt_builder]
+dependencies = []
+
 [project]
 name = 'property-mapper'
 description = 'HPT Property Mapper'
@@ -29,7 +32,6 @@ requires-python = '>= 3.10'
 dependencies = [
     'pytz',
 ]
-build_dependencies = []
 
 dynamic = [
     'version',
