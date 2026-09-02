@@ -23,12 +23,15 @@ class Datetime(PropertyMapperType, datetime):
         return parse(value)
 
     @classmethod
-    def parse(cls, value: Union[allow_types]) -> 'Datetime':
+    def parse(cls, value: Union[allow_types]) -> Optional['Datetime']:
         if isinstance(value, str):
             value = cls._parse_date_string(value)
 
         if value is None:
             value = cls.get_default_date()
+
+        if value is None:
+            return None
 
         return cls(
             year=value.year,

@@ -19,9 +19,9 @@ class Date(PropertyMapperType, date):
         В случае если _parse_date_string вернула None
 
         А такое может быть только если она была переопределена,
-        возвращает дату по-умолчанию.
+        возвращает дату по-умолчанию. None означает отсутствие даты.
         """
-        return date.today()
+        return None
 
     @staticmethod
     def _parse_date_string(value: str) -> Optional[datetime]:
@@ -34,6 +34,9 @@ class Date(PropertyMapperType, date):
 
         if value is None:
             value = cls.get_default_date()
+
+        if value is None:
+            return None
 
         return cls(
             year=value.year,
